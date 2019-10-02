@@ -14,7 +14,13 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 	
 
-requirements = pd.read_csv('requirements_dev.txt').values.ravel().tolist()
+
+Version = '1.5'
+
+
+with open('requirements_dev.txt') as requirements_file:
+    read_lines = requirements_file.readlines()
+    requirements = [line.rstrip('\n') for line in read_lines]
 	
 
 setup_requirements = ['pytest-runner', ]
@@ -51,7 +57,7 @@ setup(
     test_suite='nose.collector',
     tests_require=['nose'],
     url='https://github.com/PhilipeRLeal/time_space_reductions',
-    version='1.4',
+    version=Version,
     zip_safe=False,
 )
 
