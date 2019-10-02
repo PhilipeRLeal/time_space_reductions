@@ -3,9 +3,9 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages, Extension, find_namespace_packages
+from setuptools import setup, find_packages, find_namespace_packages
 
-import pandas as pd
+
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -54,9 +54,10 @@ setup(
 	
     keywords='time space Match Up xarray geopandas space-time reduction',
     name='time_space_reductions',
-	packages=find_namespace_packages(include=['time_space_reductions.*']),
 	
-	
+	packages=find_packages(exclude='/tests/*'),
+	package_dir = {'': 'time_space_reductions'},
+    
     setup_requires=setup_requirements,
     test_suite='nose.collector',
     tests_require=['nose'],

@@ -11,4 +11,4 @@ recursive-exclude * *.py[co]
 
 recursive-include docs *.rst conf.py Makefile make.bat
 
-include tests/data/Data_test_gelbstof_absortion_by_MODIS_AQUA.nc
+# include tests/data/Data_test_gelbstof_absortion_by_MODIS_AQUA.nc

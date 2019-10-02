@@ -296,9 +296,7 @@ def _base(gdf,
           latitude_dimension='lat',
           dict_of_windows=dict(time_window='M'),
           agg_functions=['mean', 'max', 'min', 'std'],
-          verbose=True
-                        
-         ):
+          verbose=True):
     
     
     
@@ -324,9 +322,9 @@ def get_zonal_match_up(netcdf,
                        netcdf_varnames =['adg_443_qaa'],
                        dict_of_windows=dict(time_window='5D'),
                        agg_functions=['mean', 'max', 'min', 'std'],
-                       verbose=True
-                       ):
-	"""
+                       verbose=True):
+    
+    """
     This function does Match - Up operations from centroids of Geoseries or GeoDataFrames over Netcdfs.
     
 	Attributes:
@@ -375,7 +373,7 @@ def get_zonal_match_up(netcdf,
 	
     """
 				   
-	return _base(gdf=gdf, 
+    return _base(gdf=gdf, 
                 netcdf=netcdf, 
                 netcdf_varnames=netcdf_varnames,
                 dict_of_windows=dict_of_windows,
