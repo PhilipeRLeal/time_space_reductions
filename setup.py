@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_packages, Extension, find_namespace_packages
 
 import pandas as pd
 
@@ -37,7 +37,7 @@ setup(
 		"Intended Audience :: Science/Research",
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-
+		'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
@@ -50,11 +50,13 @@ setup(
     
     include_package_data=True,
 	
-	
+	python_requires='>=3.4',  # Your supported Python ranges
 	
     keywords='time space Match Up xarray geopandas space-time reduction',
     name='time_space_reductions',
-    packages=find_packages(),
+	packages=find_namespace_packages(include=['time_space_reductions.*']),
+	
+	
     setup_requires=setup_requirements,
     test_suite='nose.collector',
     tests_require=['nose'],
