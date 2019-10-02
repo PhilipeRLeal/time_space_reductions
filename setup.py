@@ -50,11 +50,11 @@ setup(
     
     include_package_data=True,
 	
-	scripts=['modules'],
+	
 	
     keywords='time space Match Up xarray geopandas space-time reduction',
     name='time_space_reductions',
-    packages=find_packages(),
+    packages=find_packages(include=['modules']),
     setup_requires=setup_requirements,
     test_suite='nose.collector',
     tests_require=['nose'],
