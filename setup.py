@@ -15,7 +15,7 @@ with open('HISTORY.rst') as history_file:
 	
 
 
-Version = '1.5'
+Version = '1.5.1'
 
 
 with open('requirements_dev.txt') as requirements_file:
