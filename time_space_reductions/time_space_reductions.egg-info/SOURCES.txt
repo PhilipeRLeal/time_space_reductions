@@ -8,6 +8,7 @@ Makefile
 README.rst
 requirements_dev.txt
 setup.py
+dist/time_space_reductions-1.5.1.tar.gz
 docs/Makefile
 docs/authors.rst
 docs/conf.py

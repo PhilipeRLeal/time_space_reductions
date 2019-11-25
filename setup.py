@@ -28,6 +28,8 @@ setup_requirements = ['pytest-runner', ]
 test_requirements = ['pytest', ]
 
 setup(
+
+
     author="Philipe Riskalla Leal",
     author_email='leal.philipe@gmail.com',
     classifiers=[
@@ -55,7 +57,7 @@ setup(
     keywords='time space Match Up xarray geopandas space-time reduction',
     name='time_space_reductions',
 	
-	packages=find_packages(exclude='/tests/*'),
+	packages=find_packages(exclude='/tests/*', include='/time_space_reductions/*'),
 	package_dir = {'': 'time_space_reductions'},
     
     setup_requires=setup_requirements,
