@@ -1,6 +1,6 @@
 Metadata-Version: 1.2
 Name: time-space-reductions
-Version: 1.5.1
+Version: 1.3
 Summary: This library operates Space-Time Match-Up operations over Netcdf-Xarray datasets and Geopandas-GeoDataFrames. 				 It is a mandatoryr step for areas of study as geography, epidemiology, sociology, remote sensing, ecology, etc.
 Home-page: https://github.com/PhilipeRLeal/time_space_reductions
 Author: Philipe Riskalla Leal
