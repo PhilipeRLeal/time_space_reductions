@@ -20,30 +20,6 @@ import warnings
 from shapely.geometry import Point
 
 
-
-def make_fake_data(N=200):
-    
-    # creating example GeoDataframe for match-ups in EPSG 4326
-    
-    xx = np.random.randint(low=-60, high=-33, size=N)*1.105
-    
-    yy = np.random.randint(low=-4, high=20, size=N)*1.105
-    
-    df = pd.DataFrame({'lon':xx, 'lat':yy})
-    
-    
-    df['geometry'] = df.apply(lambda x: Point(x['lon'], x['lat']), axis=1)
-    
-    
-    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs={'init':'epsg:4326'})
-    
-    gdf['Datetime'] = pd.date_range('2010-05-19', '2010-06-24',  periods=gdf.shape[0])
-    
-    
-    return gdf
-
-
-
 class Space_Time_Agg_over_polygons(Base_class_space_time_netcdf_gdf):
     
     def __init__(self, gdf, xarray_dataset=None, 
@@ -106,16 +82,18 @@ class Space_Time_Agg_over_polygons(Base_class_space_time_netcdf_gdf):
         
         '''
         
+        Base_class_space_time_netcdf_gdf.__init__(self, xarray_dataset=xarray_dataset, 
+                 netcdf_temporal_coord_name=netcdf_temporal_coord_name,
+                 geo_series_temporal_attribute_name = geo_series_temporal_attribute_name,
+                 longitude_dimension=longitude_dimension,
+                 latitude_dimension=latitude_dimension,
+                )
+        
+        
         self.__netcdf_ds = xarray_dataset
         
-        self._temporal_coords = netcdf_temporal_coord_name
-        self.__geo_series_temporal_attribute_name = geo_series_temporal_attribute_name
-        # setting Standard spatial_coords/dimension names 
-        self.spatial_coords = dict(x = longitude_dimension,
-                                   y = latitude_dimension)
-        
         self.__gdf = gdf
-        
+        self.__geo_series_temporal_attribute_name = geo_series_temporal_attribute_name
         
         self.__netcdf_ds = self.netcdf_ds.sortby([self._temporal_coords, 
                                                   longitude_dimension,
@@ -212,37 +190,33 @@ class Space_Time_Agg_over_polygons(Base_class_space_time_netcdf_gdf):
         
         netcdf_sliced = self._slice_time_interval(time_init, final_time)
         
-        netcdf_sliced_as_gpd_geodataframe = self.netcdf_to_gdf(netcdf_sliced).copy()
+        netcdf_sliced_as_gpd_geodataframe = self.netcdf_to_gdf(netcdf_sliced)
             
-            
-        
         if not  netcdf_sliced_as_gpd_geodataframe.empty:
             
+            sjoined = gpd.sjoin(geoDataFrame, netcdf_sliced_as_gpd_geodataframe, how="left", op='contains')
             
-            
-            
-            sjoined = gpd.sjoin(netcdf_sliced_as_gpd_geodataframe, geoDataFrame, how="inner", op='within')
-            
-            if not sjoined.empty:
-                
-                
-                sjoined_agg = sjoined.groupby([self.__geo_series_temporal_attribute_name, 'IDX'])[netcdf_varnames].agg(agg_functions)
-                
-                
-                sjoined_agg['period_sliced'] = time_init.strftime("%Y/%m/%d %H:%M:%S") + ' <-> ' + final_time.strftime("%Y/%m/%d %H:%M:%S")
-                
+            sjoined_agg = sjoined[netcdf_varnames].agg(agg_functions)
                 
                
-                
-                return sjoined_agg
-               
-            else:
-                pass
-    
         else:
-            pass
-
+            sjoined = geoDataFrame
+            
+            for key in netcdf_varnames:
+                sjoined[key] = np.nan
+                
+        
+        sjoined_agg = sjoined_agg.T
+        
+        sjoined_agg['period_sliced'] = time_init.strftime("%Y/%m/%d %H:%M:%S") + ' <-> ' + final_time.strftime("%Y/%m/%d %H:%M:%S")
     
+        sjoined_agg.index.name = 'Variables'
+        
+        print(sjoined_agg)
+        
+        #sjoined_agg.index = geodataframe.index ?
+        
+        return sjoined_agg
     
     def _evaluate_space_time_agg(self, 
                                  netcdf_varnames=['adg_443_qaa'], 
@@ -250,42 +224,39 @@ class Space_Time_Agg_over_polygons(Base_class_space_time_netcdf_gdf):
                                  agg_functions=['nanmean','nansum','nanstd'],
                                  verbose=True):
         
-        self.gdf2 = gpd.GeoDataFrame()
-        
         
         date_offset = pd.tseries.frequencies.to_offset(dict_of_windows['time_window'])
         
-        self.gdf['IDX'] = np.arange(self.gdf.shape[0])
         
+        self.gdf2 = self.gdf.groupby(self.__geo_series_temporal_attribute_name).apply(lambda group:   
+            
+            self._make_time_space_aggregations(group,
+                                               date_offset=date_offset,
+                                               netcdf_varnames=netcdf_varnames,
+                                               agg_functions=agg_functions)
+            
+            )
         
-        for idx, group in self.gdf.groupby(self.gdf[self.__geo_series_temporal_attribute_name].unique()):
-            
-            
-            group2 = self._make_time_space_aggregations(group.copy(),
-                                                        date_offset=date_offset,
-                                                        netcdf_varnames=netcdf_varnames,
-                                                        agg_functions=agg_functions)
-            
-            if verbose == True:
-                print('\n'*3,  group2,  '\n'*2)
-            
-            self.gdf2 = self.gdf2.append(group2)
-            
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore')
-            
-            self.gdf2 = (self.gdf[['geometry', 'IDX', self.__geo_series_temporal_attribute_name]]
-                          .merge(self.gdf2, 
-                                 on=['IDX', self.__geo_series_temporal_attribute_name])
-                        )
-                          
-                      
-        self.gdf2.crs = self.gdf.crs
-            
+        if self.gdf.index.name == None:
+
+            self.gdf.index.name = 'index'
+
+            idx_name = 'index'
+
+        else:
+            idx_name = self.gdf.index.name
+
+        T = self.gdf2
+        T[idx_name] =  list(self.gdf.index) * (len(self.gdf2) // len(self.gdf))
+        T = T.reset_index().set_index(idx_name)
         
-        return self.gdf2.copy()
-    
-    
+        if verbose:
+        
+            print('T: \n', T)
+        
+        self.gdf2 = self.gdf.merge(T, on=[idx_name, self.__geo_series_temporal_attribute_name])
+
+      
     
 def _base(gdf,
           netcdf,
@@ -303,17 +274,21 @@ def _base(gdf,
     
     Match_Upper = Space_Time_Agg_over_polygons(  gdf=gdf, 
                                                  xarray_dataset=netcdf, 
-                                                 netcdf_temporal_coord_name='time',
-                                                 geo_series_temporal_attribute_name = 'Datetime',
-                                                 longitude_dimension='lon',
-                                                 latitude_dimension='lat')
+                                                 netcdf_temporal_coord_name=netcdf_temporal_coord_name,
+                                                 geo_series_temporal_attribute_name = geo_series_temporal_attribute_name,
+                                                 longitude_dimension=longitude_dimension,
+                                                 latitude_dimension=latitude_dimension)
     
    
-    return Match_Upper._evaluate_space_time_agg(netcdf_varnames=['adg_443_qaa'], 
-                                                dict_of_windows=dict_of_windows,
-                                                agg_functions=agg_functions,
-                                                verbose=verbose)
-            
+    Match_Upper._evaluate_space_time_agg(netcdf_varnames=netcdf_varnames, 
+                                         dict_of_windows=dict_of_windows,
+                                         agg_functions=agg_functions,
+                                         verbose=verbose)
+    
+    
+    
+    
+    return Match_Upper.gdf2
             
             
 
@@ -322,6 +297,10 @@ def get_zonal_match_up(netcdf,
                        netcdf_varnames =['adg_443_qaa'],
                        dict_of_windows=dict(time_window='5D'),
                        agg_functions=['mean', 'max', 'min', 'std'],
+                       netcdf_temporal_coord_name='time',
+                       geo_series_temporal_attribute_name = 'Datetime',
+                       longitude_dimension='lon',
+                       latitude_dimension='lat',
                        verbose=True):
     
     """
@@ -372,13 +351,75 @@ def get_zonal_match_up(netcdf,
 		
 	
     """
-				   
-    return _base(gdf=gdf, 
-                netcdf=netcdf, 
+	
+    if isinstance(gdf.index, pd.MultiIndex):
+    
+        gdf = gdf.reset_index()
+    
+    
+    return _base(gdf=gdf.copy(), 
+                netcdf=netcdf.copy(), 
                 netcdf_varnames=netcdf_varnames,
                 dict_of_windows=dict_of_windows,
                 agg_functions=agg_functions,
-                verbose=verbose
+                verbose=verbose,
+                netcdf_temporal_coord_name=netcdf_temporal_coord_name,
+                geo_series_temporal_attribute_name = geo_series_temporal_attribute_name,
+                longitude_dimension=longitude_dimension,
+                latitude_dimension=latitude_dimension,
                 )
                 
 
+
+
+if '__main__' == __name__:
+    
+
+    def make_fake_data(N=200):
+        
+        # creating example GeoDataframe for match-ups in EPSG 4326
+        
+        xx = np.random.randint(low=-60, high=-33, size=N)*1.105
+        
+        yy = np.random.randint(low=-4, high=20, size=N)*1.105
+        
+        df = pd.DataFrame({'lon':xx, 'lat':yy})
+        
+        
+        df['geometry'] = df.apply(lambda x: Point(x['lon'], x['lat']), axis=1)
+        
+        
+        gdf = gpd.GeoDataFrame(df, geometry='geometry', crs={'init':'epsg:4326'})
+        
+        gdf['Datetime'] = pd.date_range('2010-05-19', '2010-06-24',  periods=gdf.shape[0])
+        
+        
+        return gdf
+
+    
+    gdf = make_fake_data(3)
+        
+    gdf.geometry = gdf.geometry.buffer(1.15) # in degrees
+    
+    import xarray as xr    
+        
+    def get_netcdf_example():
+        import glob
+        cpath = r'C:\Users\Philipe Leal\Dropbox\Profissao\Python\OSGEO\Matrizes\NetCDF\Time_Space_Concatenations\time_space_reductions\tests\data'
+        path_file = glob.glob(cpath + '/*.nc' )
+        
+        
+        return  xr.open_mfdataset(path_file[0])
+
+    xnetcdf = get_netcdf_example()
+    
+    gdf2 = get_zonal_match_up(gdf=gdf, 
+                              netcdf=xnetcdf,
+                                netcdf_varnames =['adg_443_qaa'],
+                                dict_of_windows=dict(time_window='1M'),
+                                agg_functions=['mean', 'max', 'min', 'std']
+                                
+                                   )
+    
+    
+    print(gdf2)

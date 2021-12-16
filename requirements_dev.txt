@@ -5,6 +5,7 @@ watchdog
 flake8
 tox
 coverage
+scipy
 Sphinx
 twine
 xarray
@@ -15,5 +16,6 @@ numpy
 fiona
 shapely
 matplotlib
+pyproj
 pytest
 pytest-runner

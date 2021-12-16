@@ -21,7 +21,8 @@ from unittest import TestCase
 
 from time_space_reductions.match_ups_over_centroids import get_match_up_over_centroids
 from time_space_reductions.match_ups_over_polygons import get_zonal_match_up
-
+from time_space_reductions.match_ups_over_points.test_matchup import (test_temporal_and_spatial_matchUps,  
+                                                         test_only_spatial_matchUps)
 
 def make_fake_data(N=200):
     
@@ -80,6 +81,25 @@ class Tester_match_ups_over_centroids(TestCase):
     
         
         self.assertTrue(isinstance(gdf2, gpd.geodataframe.GeoDataFrame))    
+        
+        
+    def test_only_spatial_match_ups_over_points(self):
+        
+        try:
+            No_temoral_match_Results = test_temporal_and_spatial_matchUps()
+            
+            self.assertTrue(True)
+        except:
+            self.assertTrue(False)
+        
+    def test_temporal_and_spatial_match_ups_over_points(self):
+        try:
+            temoral_match_Results = test_only_spatial_matchUps()
+            
+            self.assertTrue(True)
+        except:
+            self.assertTrue(False)
+            
 
 
 
