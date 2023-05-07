@@ -1,5 +1,9 @@
+"""
+Agorithm derived from:
 
+https://notebook.community/lesserwhirls/unidata-python-workshop/netcdf-by-coordinates
 
+"""
 
 import numpy as np
 
