@@ -5,7 +5,7 @@ import xarray as xr
 import pandas as pd
 import geopandas as gpd
 
-from .base_class_for_query_of_nearest_points import Query_Nearest_Points
+from .base_class_for_query_of_nearest_points impor KdtreeWithReprojectionSearch
 
 
 def _get_nearest_pixels(ground_pixel_tree, 
