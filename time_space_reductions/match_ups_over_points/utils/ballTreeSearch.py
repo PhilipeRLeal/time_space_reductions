@@ -24,8 +24,8 @@ class BallTreeSearch(BaseTree):
     def __init__(self, 
                  ds:Union[xr.DataArray,xr.Dataset], 
                  latCoordVarname: str, 
-                 lonCoordVarname: str, 
-                 metric=metrics.pairwise.haversine_distances):
+                 lonCoordVarname: str
+             ):
         
         self.rad_factor = pi/180.0 
         self.ds = ds
@@ -48,7 +48,7 @@ class BallTreeSearch(BaseTree):
                                        lonvalsInRadians.values.ravel()])
 
         self.tree = BallTree(coords,
-                             metric=metric)
+                             metric="haversine")
         
     def query(self, latitudes: Array1xN, longitudes: Array1xN) -> Array2xN:
         """
