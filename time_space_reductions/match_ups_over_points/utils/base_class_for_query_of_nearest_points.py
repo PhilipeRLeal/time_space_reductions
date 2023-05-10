@@ -1,10 +1,115 @@
-from pyproj import Transformer
+from pyproj import Transformer as CRSTransformer
 import numpy as np
 from scipy import spatial
 import xarray as xr
 from shapely.geometry import Point
+from typing import Tuple, List, Union
+from abc import ABC, abstractmethod
 
-class Query_Nearest_Points():
+class Transformer(ABC):
+    
+    @abstractmethod
+    def transform(self, point: Point, point_origin_SRC_EPSG: str, target_SRC_EPSG: str):
+        """
+        
+        Parameters
+        ----------
+        point : Point
+            DESCRIPTION.
+        point_origin_SRC_EPSG : str
+            EPSG relative to the shapely.geometry.Point's coordinate reference system
+        target_SRC_EPSG : str
+            EPSG relative of the coordinate reference system that the point will be converted to
+
+        Returns
+        -------
+        None.
+
+        """
+    
+    
+    
+    
+class PointConverter(Transformer):
+    
+    def pointToArray(self, coords: Point) -> Tuple[float, float]:
+        """ convert's a shapely.geometry.Point to the
+        a Tuple[float, float]
+        
+        Keyword arguments:
+        coords - a shapely.geometry.Point object
+        
+        
+        Returns
+            Tuple[float, float]
+        """
+
+        if not isinstance(coords, Point):
+            raise TypeError("Coordinates must be of type shapely.geometry.Point")
+        
+       
+        xy = (coords.y, coords.x)
+        
+        return xy
+    
+    def transform(self, point: Point, point_origin_SRC_EPSG: str, target_SRC_EPSG: str):
+        """ Transform coordinates from a shapely.geometry.Point to the
+        netcdf target's coordinate reference system
+        
+        Keyword arguments:
+        point - a shapely.geometry.Point object
+        """
+
+        if not isinstance(point, Point):
+            raise TypeError("Coordinates must be of type shapely.geometry.Point")
+        
+        else:
+            xy = self.pointToArray(point)
+        
+        Point_coordinate_transformer = CRSTransformer.from_crs("epsg:{0}".format(point_origin_SRC_EPSG), 
+                                           "epsg:{0}".format(target_SRC_EPSG))
+        
+        new_coord = Point_coordinate_transformer.transform(xy[0], xy[1])
+        
+        new_coord_asArray = np.column_stack(new_coord)
+
+        return new_coord_asArray
+    
+    
+
+class TupleConverter(Transformer):
+    
+    def transform(self, point: Point, point_origin_SRC_EPSG: str, target_SRC_EPSG: str):
+        """ Transform coordinates from a shapely.geometry.Point to the
+        netcdf target's coordinate reference system
+        
+        Keyword arguments:
+        point - a shapely.geometry.Point object
+        
+        returns
+            1x2 array
+        """
+
+        if not isinstance(point, tuple) and len(point)==2:
+            raise TypeError("Coordinates must be of type shapely.geometry.Point")
+        
+        else:
+            xy = np.stack([point])
+
+
+        Point_coordinate_transformer = CRSTransformer.from_crs("epsg:{0}".format(point_origin_SRC_EPSG), 
+                                           "epsg:{0}".format(target_SRC_EPSG))
+        
+        new_coord = Point_coordinate_transformer.transform(xy[0], xy[1])
+        
+        new_coord_asArray = np.column_stack(new_coord)
+
+        return new_coord_asArray
+        
+    
+
+
+class KdtreeWithReprojectionSearch:
     
     """ 
     
@@ -12,10 +117,18 @@ class Query_Nearest_Points():
     
     A KD-tree implementation for fast point lookup on a 2D grid
     
-    Keyword arguments: 
-    dataset -- a xarray DataArray containing lat/lon coordinates
-               (named 'lat' and 'lon' respectively)
-               
+    This class diverges from the KdtreePolarCoordinateSearch in terms of the 
+    pre-processing of the coordinates that is done prior to building the
+    Kdtree.
+    
+    
+    Here, the coordinates are reprojected into a planar coordinate
+    reference system (CRS), in terms of x and y axis,
+    prior to creating the kdtree. Therefore, one must be aware of the 
+    original CRS from the dataset and the desired (target) CRS that the coordinates
+    will be converted into prior to building the search tree.
+    
+   
     
     Implementation Reference:
         https://notes.stefanomattia.net/2017/12/12/The-quest-to-find-the-closest-ground-pixel/
@@ -26,15 +139,39 @@ class Query_Nearest_Points():
     """
     
     def __init__(self, 
-                 dataset, 
+                 dataset: Union[xr.DataArray,xr.Dataset], 
                  lat_coord_name='lat',
                  lon_coord_name='lon',
                  da_array_crs_epsg=4326, 
                  target_epsg=4978):
+        """
         
+
+        Parameters
+        ----------
+        dataset : Union[xr.DataArray,xr.Dataset]
+            DESCRIPTION.
+        lat_coord_name : TYPE, optional
+            DESCRIPTION. The default is 'lat'.
+        lon_coord_name : TYPE, optional
+            DESCRIPTION. The default is 'lon'.
+        da_array_crs_epsg : TYPE, optional
+            DESCRIPTION. The default is 4326.
+        target_epsg : TYPE, optional
+            DESCRIPTION. The default is 4978.
+
+        Returns
+        -------
+        None.
+
+        """
         
-        self.transformer = Transformer.from_crs("epsg:{0}".format(da_array_crs_epsg), 
+        self.da_array_crs_epsg = da_array_crs_epsg
+        self.target_epsg = target_epsg
+        self.transformer = CRSTransformer.from_crs("epsg:{0}".format(da_array_crs_epsg), 
                                            "epsg:{0}".format(target_epsg))
+        
+        
         
         self.dataset = dataset
         # store original dataset shape
@@ -46,9 +183,10 @@ class Query_Nearest_Points():
         
         # construct KD-tree
         self.tree = spatial.cKDTree(self.transform_coordinates(coords))
-
+        
+        
     
-    def transform_coordinates(self, coords):
+    def transform_coordinates(self, point: List[Point], point_origin_SRC_EPSG:"str" = "4326"):
         """ Transform coordinates from geodetic to cartesian
         
         Keyword arguments:
@@ -57,25 +195,17 @@ class Query_Nearest_Points():
         """
 
 
-        if isinstance(coords, tuple) and len(coords)==2:
-            xy = np.stack([coords])
+        if isinstance(point, [tuple, list]) and len(point)==2:
+            new_coord = TupleConverter.transform(point, point_origin_SRC_EPSG, self.target_epsg)
         
         
-        elif isinstance(coords, Point):
-            xy = [coords.y, coords.x]
+        elif isinstance(point, Point):
+            new_coord = PointConverter.transform(point, point_origin_SRC_EPSG, self.target_epsg)
         
         else:
-            xy = np.stack(coords)
-        
-        xy = np.asanyarray(xy)
-        if xy.shape[0] == 2 and len(xy.shape) == 1:
-            xy = xy.reshape(-1, 1).T
-        
+           raise TypeError("point type unknown")
 
-        new_coord = np.column_stack(self.transformer.transform(xy[:,0], xy[:,1]))
-        
-        
-        
+
         return new_coord
         
 
