@@ -44,7 +44,7 @@ def get_nearest_pixels(da_array,
                        da_array_crs_epsg=4326,
                        target_epsg=4978):
     
-    ground_pixel_tree = Query_Nearest_Points(da_array, 
+    ground_pixel_tree =  KdtreeWithReprojectionSearch(da_array, 
                                              lat_coord_name=lat_coord_name,
                                              lon_coord_name=lon_coord_name,
                                              da_array_crs_epsg=da_array_crs_epsg,
