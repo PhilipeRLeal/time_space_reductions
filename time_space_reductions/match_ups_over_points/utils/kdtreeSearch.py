@@ -14,7 +14,7 @@ from typing import Union
 
 from scipy.spatial import cKDTree
 
-from baseTree import BaseTree, Array2xN, Array1xN
+from baseTree import BaseTree, Array2xN, Array1xN, END
 
 
 
@@ -96,15 +96,17 @@ class KdtreePolarCoordinateSearch(BaseTree):
 
         """
 
-        lat0_rad = latitudes * self.rad_factor
+        lat0_rad = np.array(latitudes).ravel() * self.rad_factor
 
-        lon0_rad = longitudes * self.rad_factor
+        lon0_rad = np.array(longitudes).ravel() * self.rad_factor
 
         clat0,clon0 = np.cos(lat0_rad), np.cos(lon0_rad)
 
         slat0,slon0 = np.sin(lat0_rad), np.sin(lon0_rad)
+            
+        polarcoords = np.array([clat0*clon0,clat0*slon0,slat0]).T
 
-        dist_sq_min, minindex_1d = self.tree.query([clat0*clon0,clat0*slon0,slat0])
+        dist_sq_min, minindex_1d = self.tree.query(polarcoords)
 
         iy_min, ix_min = np.unravel_index(minindex_1d, self.shape)
 
@@ -139,12 +141,15 @@ if "__main__" == __name__:
 
     searcher = KdtreePolarCoordinateSearch(ds,'yc','xc')
     
-    iy,ix = searcher.query(65, 255.6)
-    
-    
-    print('Closest lat lon:', iy,ix)
-    
+    iy, ix = searcher.query([65], [255.6])
+ 
     nearest_points = searcher.pointsToXrArray([iy, ix], "y", "x")
     
-    print(nearest_points)
+    print(nearest_points, end=END)
+    
+    
+    print('Closest lat lon:', nearest_points.coords.items())
+    
+    # 
+    
 

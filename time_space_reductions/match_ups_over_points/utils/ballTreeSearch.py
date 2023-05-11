@@ -17,7 +17,7 @@ from math import pi
 from sklearn.neighbors import BallTree
 from sklearn import metrics
 
-from baseTree import BaseTree, Array2xN, Array1xN
+from baseTree import BaseTree, Array2xN, Array1xN, END
 
 
 class BallTreeSearch(BaseTree):
@@ -45,7 +45,7 @@ class BallTreeSearch(BaseTree):
         lonvalsInRadians = self.lonvar * self.rad_factor
         
         coords = np.array([latvalsInRadians.values.ravel(), 
-                                       lonvalsInRadians.values.ravel()])
+                                       lonvalsInRadians.values.ravel()]).T
 
         self.tree = BallTree(coords,
                              metric="haversine")
@@ -70,11 +70,10 @@ class BallTreeSearch(BaseTree):
 
         """
         
-        rad_factor = self.rad_factor 
-        latitudes_asRadians = latitudes * rad_factor
-        longitudes_asRadians = longitudes * rad_factor
-        
-        dist_sq_min, minindex_1d = self.tree.query([latitudes_asRadians, longitudes_asRadians])
+        latitudes_asRadians = np.array(latitudes).ravel() * self.rad_factor 
+        longitudes_asRadians = np.array(longitudes).ravel() * self.rad_factor 
+        points = np.array([latitudes_asRadians, longitudes_asRadians]).T
+        dist_sq_min, minindex_1d = self.tree.query(points)
         iy_min, ix_min = np.unravel_index(minindex_1d, self.shape)
         return iy_min,ix_min
     
@@ -105,17 +104,17 @@ class BallTreeSearch(BaseTree):
 
         
 if "__main__" == __name__:
-    
-    
+
     ds = xr.tutorial.open_dataset("rasm").load()
 
     searcher = BallTreeSearch(ds,'yc','xc')
     
-    iy,ix = searcher.query(65, 255.6)
-    
-    
-    print('Closest lat lon:', iy,ix)
-    
+    iy, ix = searcher.query([65], [255.6])
+ 
     nearest_points = searcher.pointsToXrArray([iy, ix], "y", "x")
     
-    print(nearest_points)
+    print(nearest_points, end=END)
+    
+    print('Closest lat lon:', nearest_points.coords.items())
+    
+

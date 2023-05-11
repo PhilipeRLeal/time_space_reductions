@@ -15,6 +15,7 @@ from numpy.typing import ArrayLike, NDArray
 from typing import Union, List, Annotated, Literal, TypeVar
 from abc import ABC, abstractmethod
 
+END = "\n"*3
 
 
 DType = TypeVar("DType", bound=np.generic)
@@ -22,6 +23,8 @@ DType = TypeVar("DType", bound=np.generic)
 Array3xN = Annotated[NDArray[DType], Literal[3, "N"]]
 
 Array2xN = Annotated[NDArray[DType], Literal[2, "N"]]
+
+ArrayNx2 = Annotated[NDArray[DType], Literal["N", 2]]
 
 Array1xN = Annotated[NDArray[DType], Literal[1, "N"]]
 
@@ -105,15 +108,34 @@ class BaseTree(ABC):
         
         
     def pointsToXrArray(self, 
-                        points: List[ArrayLike],
+                        points: List[ArrayNx2],
                         xdimName: str,
                         ydimName: str) -> Union[xr.DataArray,xr.Dataset]:
+        """
+        Transforms the provided points's list into an xr.DataArray 
+        (or xr.Dataset) derived from the provided self.ds itself.
+
+        Parameters
+        ----------
+        points : List[ArrayNx2]
+            a list of Nx2 samples of pairs of latitudes and longitudes
+        xdimName : str
+            the X dimension name of the xarray.DataArray|Dataset
+        ydimName : str
+            the Y dimension name of the xarray.DataArray|Dataset
+
+        Returns
+        -------
+        nearest_points : Union[xr.DataArray,xr.Dataset]
+            the same type of the input.
+
+        """
         
         if (np.array(points).ndim):
-            points = np.array(points).reshape(-1, 1)
+            points = np.array(points).reshape(1, -1)
         
-        ydataArray = xr.DataArray(points[0,:], dims=[self.latvarname])
-        xdataArray = xr.DataArray(points[1,:], dims=[self.lonvarname])
+        ydataArray = xr.DataArray(points[:,0], dims=[self.latvarname])
+        xdataArray = xr.DataArray(points[:,1], dims=[self.lonvarname])
         
         nearest_points = self.ds.isel({xdimName:ydataArray, ydimName:xdataArray})
         
