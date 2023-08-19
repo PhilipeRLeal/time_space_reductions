@@ -31,7 +31,7 @@ class Transformer(ABC):
     
     
     
-class PointConverter(Transformer):
+class PointTransformer(Transformer):
     
     def pointToArray(self, coords: Point) -> Tuple[float, float]:
         """ convert's a shapely.geometry.Point to the
@@ -84,15 +84,16 @@ class PointConverter(Transformer):
         return new_coord_asArray
 
 
-class ArrayConverter(Transformer):
+class ArrayTransformer(Transformer):
     
     
-    def transform(self, xyArrayCoordinates: , point_origin_SRC_EPSG: str, target_SRC_EPSG: str):
+    def transform(self, yxCoordinatesArray: , origin_SRC_EPSG: str, target_SRC_EPSG: str):
         """ Transform coordinates from a shapely.geometry.Point to the
         netcdf target's coordinate reference system
         
         Keyword arguments:
-        point - a shapely.geometry.Point object
+        yxCoordinatesArray: a np.NDArray[2,N], being N = number of pairs of [ycoords:float, xcoords:float].
+        
 
         Returns
         ---------
@@ -103,12 +104,13 @@ class ArrayConverter(Transformer):
             raise TypeError("Coordinates must be of type np.array")
         
         else:
-            ycoord, xcoord= self.pointToArray(point)
+            ycoords, xcoords = yxCoordinatesArray
+ 
         
-        Point_coordinate_transformer = CRSTransformer.from_crs("epsg:{0}".format(point_origin_SRC_EPSG), 
+        Point_coordinate_transformer = CRSTransformer.from_crs("epsg:{0}".format(origin_SRC_EPSG), 
                                            "epsg:{0}".format(target_SRC_EPSG))
         
-        new_coord = Point_coordinate_transformer.transform(ycoord, xcoord)
+        new_coord = Point_coordinate_transformer.transform(ycoords, xcoords)
         
         new_coord_asArray = np.column_stack(new_coord)
 
@@ -116,7 +118,7 @@ class ArrayConverter(Transformer):
     
     
 
-class TupleConverter(Transformer):
+class TupleTransformer(Transformer):
     
     def transform(self, point: Point, point_origin_SRC_EPSG: str, target_SRC_EPSG: str):
         """ Transform coordinates from a shapely.geometry.Point to the
@@ -145,7 +147,33 @@ class TupleConverter(Transformer):
 
         return new_coord_asArray
         
+
+
+class XarrayTransformer(Transformer):
     
+    def transform(self, 
+                  dataset: xr.DataSet, 
+                  lat_coord_name: str,
+                  lon_coord_name: str,
+                  da_array_crs_epsg=4326, 
+                  target_epsg=4978
+                  ):
+        """ Transform 
+        new_coord = Point_coordinate_transformer.transform(ycoord, xc
+        return new_coord_asArray
+
+
+        """
+
+
+        # reshape and stack coordinates
+        coords = np.column_stack((dataset.coords[lat_coord_name].values.ravel(),
+                                  dataset.coords[lon_coord_name].values.ravel()))
+        
+
+        return ArrayTransKdtrer.transform(coords, da_array_crs_epsg, 
+                                          target_epsg)
+
 
 
 class KdtreeWithReprojectionSearch:
@@ -208,23 +236,24 @@ class KdtreeWithReprojectionSearch:
         self.da_array_crs_epsg = da_array_crs_epsg
         self.target_epsg = target_epsg
         self.transformer = CRSTransformer.from_crs("epsg:{0}".format(da_array_crs_epsg), 
-                                           "epsg:{0}".format(target_epsg))
-        
-        
+                                                   "epsg:{0}".format(target_epsg)
+                                                  )
         
         self.dataset = dataset
         # store original dataset shape
         self.shape = dataset.shape
-        
-        # reshape and stack coordinates
-        coords = np.column_stack((dataset.coords[lat_coord_name].values.ravel(),
-                                  dataset.coords[lon_coord_name].values.ravel()))
+
+        coords = XarrayTransformer.transform(dataset, 
+                                             lat_coord_name, 
+                                             lon_coord_name,
+                                             da_array_crs_epsg, 
+                                             target_epsg
+                                             )
         
         # construct KD-tree
-        self.tree = spatial.cKDTree(self.transform_coordinates(coords))
-        
-        
+        self.tree = spatial.cKDTree(coords)
     
+        
     def transform_coordinates(self, point: List[Point], point_origin_SRC_EPSG:"str" = "4326"):
         """ Transform coordinates from geodetic to cartesian
         
@@ -233,24 +262,24 @@ class KdtreeWithReprojectionSearch:
                  an array of tuples)
         """
 
-
         if isinstance(point, [tuple, list]) and len(point)==2:
-            new_coord = TupleConverter.transform(point, point_origin_SRC_EPSG, self.target_epsg)
+            new_coord = TupleTransformer.transform(point, point_origin_SRC_EPSG, self.target_epsg)
         
         
         elif isinstance(point, Point):
-            new_coord = PointConverter.transform(point, point_origin_SRC_EPSG, self.target_epsg)
+            new_coord = PointTransformer.transform(point, point_origin_SRC_EPSG, self.target_epsg)
+        
+        elif isinstance(point, np.NDArray):
+            new_coord = ArrayTransformer.transform(point, point_origin_SRC_EPSG, self.target_epsg)
         
         else:
            raise TypeError("point type unknown")
 
-
         return new_coord
         
-
         
     def query(self, point, k=1):
-        """ Query the kd-tree for nearest neighbour.
+        """ Query the kd-tree for the K nearest neighbours.
 
         Keyword arguments:
         point -- a (lat, lon) tuple or array of tuples
@@ -279,8 +308,8 @@ class KdtreeWithReprojectionSearch:
                xr.DataArray(yy, dims='pixel')
     
     def query_ball_point(self, point, radius):
-        """ Query the kd-tree for all point within distance 
-        radius of point(s) x
+        """ Query the kd-tree for all points within distance 
+        radius (in target's crs units) of point(s) x
         
         Keyword arguments:
         point -- a (lat, lon) tuple or array of tuples
