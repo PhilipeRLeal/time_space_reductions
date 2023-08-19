@@ -19,11 +19,12 @@ class Transformer(ABC):
         point_origin_SRC_EPSG : str
             EPSG relative to the shapely.geometry.Point's coordinate reference system
         target_SRC_EPSG : str
-            EPSG relative of the coordinate reference system that the point will be converted to
+            EPSG relative of the coordinate reference system
 
-        Returns
-        -------
-        None.
+            Returns
+            ----------
+            
+            np.NDArray[2,N], being N = number of pairs of [ycoords:float, xcoords:float].
 
         """
     
@@ -41,16 +42,16 @@ class PointConverter(Transformer):
         
         
         Returns
-            Tuple[float, float]
+            1D of length 1 numpy array = [ycoords:float, xcoords:float]
         """
 
         if not isinstance(coords, Point):
             raise TypeError("Coordinates must be of type shapely.geometry.Point")
         
        
-        xy = (coords.y, coords.x)
+        yx = np.array([coords.y, coords.x])
         
-        return xy
+        return yx
     
     def transform(self, point: Point, point_origin_SRC_EPSG: str, target_SRC_EPSG: str):
         """ Transform coordinates from a shapely.geometry.Point to the
@@ -58,18 +59,56 @@ class PointConverter(Transformer):
         
         Keyword arguments:
         point - a shapely.geometry.Point object
+
+        
+        
+        Returns
+        ---------
+            np.NDArray[2,N], being N = number of pairs of [ycoords:float, xcoords:float].
         """
 
         if not isinstance(point, Point):
             raise TypeError("Coordinates must be of type shapely.geometry.Point")
         
         else:
-            xy = self.pointToArray(point)
+            ycoord, xcoord = self.pointToArray(point)
         
         Point_coordinate_transformer = CRSTransformer.from_crs("epsg:{0}".format(point_origin_SRC_EPSG), 
                                            "epsg:{0}".format(target_SRC_EPSG))
         
-        new_coord = Point_coordinate_transformer.transform(xy[0], xy[1])
+        new_coord = Point_coordinate_transformer.transform(ycoord,
+                                                           xcoord)
+        
+        new_coord_asArray = np.column_stack(new_coord)
+
+        return new_coord_asArray
+
+
+class ArrayConverter(Transformer):
+    
+    
+    def transform(self, xyArrayCoordinates: , point_origin_SRC_EPSG: str, target_SRC_EPSG: str):
+        """ Transform coordinates from a shapely.geometry.Point to the
+        netcdf target's coordinate reference system
+        
+        Keyword arguments:
+        point - a shapely.geometry.Point object
+
+        Returns
+        ---------
+            np.NDArray[2,N], being N = number of pairs of [ycoords:float, xcoords:float].
+        """
+
+        if not isinstance(point, np.NDArray):
+            raise TypeError("Coordinates must be of type np.array")
+        
+        else:
+            ycoord, xcoord= self.pointToArray(point)
+        
+        Point_coordinate_transformer = CRSTransformer.from_crs("epsg:{0}".format(point_origin_SRC_EPSG), 
+                                           "epsg:{0}".format(target_SRC_EPSG))
+        
+        new_coord = Point_coordinate_transformer.transform(ycoord, xcoord)
         
         new_coord_asArray = np.column_stack(new_coord)
 
@@ -94,13 +133,13 @@ class TupleConverter(Transformer):
             raise TypeError("Coordinates must be of type shapely.geometry.Point")
         
         else:
-            xy = np.stack([point])
+            ycoord, xcoord= np.stack([point])
 
 
         Point_coordinate_transformer = CRSTransformer.from_crs("epsg:{0}".format(point_origin_SRC_EPSG), 
                                            "epsg:{0}".format(target_SRC_EPSG))
         
-        new_coord = Point_coordinate_transformer.transform(xy[0], xy[1])
+        new_coord = Point_coordinate_transformer.transform(ycoord, xcoord)
         
         new_coord_asArray = np.column_stack(new_coord)
 
