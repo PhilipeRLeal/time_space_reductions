@@ -21,12 +21,10 @@ time_space_reductions
 
 
 This library operates Space-Time Match-Up operations over Netcdf-Xarray datasets and Geopandas-GeoDataFrames. 
-It is a mandatoryr step for areas of study as geography, epidemiology, sociology, remote sensing, ecology, etc.
+It is a mandatory step for areas of study as geography, epidemiology, sociology, remote sensing, ecology, etc.
 
 
 * Free software: MIT license
-* Documentation: https://time-space-match-ups.readthedocs.io.
-
 
 Features
 --------
